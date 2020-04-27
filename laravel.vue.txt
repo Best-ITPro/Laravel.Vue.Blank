@@ -1,0 +1,194 @@
+Laravel.Vue - проект работы с Vue.JS в Laravel.
+----------------------------------------------
+
+Laravel.Vue запуск на Open Server
+
+если OpenServer не был настроен ранее для других проектов, делаем следующее:
+1.1.) Установка Composer на OpenServer
+Допустим, мы установили Open Server в каталог D:\OSPanel\. Переходим к текущему модулю PHP, например: D:\OSPanel\modules\php\PHP_7.3-x64
+
+1.2.) Запускаем:
+php -r "readfile('https://getcomposer.org/installer');" | php
+или Composer-Setup.exe, указывая  D:\OSPanel\modules\php\PHP_7.3-x64
+
+1.3) Проверяем какая версия стоит командой: 
+php composer.phar -V
+
+
+1.4) Создаём .bat файл и в дальнейшем можно будет работать без указания php composer.phar, просто указывая composer:
+echo @php "%~dp0composer.phar" %*>composer.bat
+
+
+Итак, установка Laravel
+1.5) D:\OSPanel\domains\laravel.vue
+
+Запускаем консоль
+cd laravel.vue
+composer -V (допустим, Composer version 1.10.5 2020-04-10 11:44:22)
+
+Если всё ок, поднимаемся на уровень выше cd ..
+
+и запускаем команду
+
+composer create-project --prefer-dist laravel/laravel laravel.vue
+где laravel.vue – каталог нашего проекта
+
+
+2) Устанавливаем Node.JS (если не был установлен) https://nodejs.org/en/
+
+Запускаем OpenServer, и идем в настройки. Во вкладке «Сервер» в поле «Настройка использования переменной Path» выставляем «Свой Path + userdata/config/path.txt». Создаем файл в папке \OpenServer\userdata\config\ под именем path.txt следующего содержания:
+
+C:\Program Files\nodejs\
+
+Перезапускаем OpenServer
+Проверяем npm -i
+
+3) cd laravel.vue
+npm install
+
+4) В OpenServer идем в настройки. Во вкладке «Домены» добавляем папку D:\OSPanel\domains\laravel.vue\public -> имя домена laravel.vue
+Проверяем в браузере http://laravel.vue
+
+5)  В OpenServer идём в «Дополнительно» phpmyadmin (логин root без пароля)
+
+Создаём базу laravel.vue в кодировке utf8mb4_general_ci
+
+Редактируем файл .env в \OSPanel\domains\laravel.vue\
+
+APP_NAME=Laravel.Vue
+APP_URL=http://laravel.vue
+DB_DATABASE=laravel.vue
+
+Можно настроить smtp (на примере Яндекс):
+
+MAIL_DRIVER=smtp
+MAIL_HOST=smtp.yandex.ru
+MAIL_PORT=587
+MAIL_USERNAME=ВАШ_ЛОГИН
+MAIL_PASSWORD=ВАШ_ПАРОЛЬ
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=ВАШ_EMAIL
+MAIL_FROM_NAME="${APP_NAME}"
+
+6) 	В консоли в папке \OSPanel\domains\laravel.vue\ запускаем команду php artisan config:cache
+
+7) В :\OSPanel\domains\laravel.vue\resources\views\welcome.blade.php меняем:
+
+< title >Laravel< / title >
+на < title >{{ config('app.name') }}< / title >
+Надпись Laravel в < div class="title m-b-md">
+на {{ config('app.name') }} ;)
+
+Проверяем в браузере http://laravel.vue
+
+Мы должны увидеть: Laravel.Vue ;)
+
+
+8) Версию установленного Laravel можно поверить командой (в консоли в папке проекта):
+
+php artisan -V
+
+В нашем случае это Laravel Framework 7.8.1
+
+9) Открываем папку нашего проекта в PHPStorm или в другой IDE
+
+
+10) Модифицируем файл app/Providers/AppServiceProvider.php
+
+Без этих изменений может возникать ошибка:
+Syntax error or access violation: 1071 Specified key was too long; max key length is 767 bytes
+Дело в том, что в Laravel 5.4 изменилась кодировка по умолчанию для базы данных (теперь это utf8mb4 для поддержки emoji). Ошибка Specified key was too long error проявляется только для MySQL ниже v5.7.7 и в старых версиях MariaDB.
+
+Итак, в app/Providers/AppServiceProvider.php добавляем:
+
+- Добавьте строку в блоке use: use Illuminate\Support\Facades\Schema;
+- Добавьте в метод boot строку: Schema::defaultStringLength(191);
+
+11) Запускаем миграции: php artisan migrate
+
+Migration table created successfully.
+Migrating: 2014_10_12_000000_create_users_table
+Migrated:  2014_10_12_000000_create_users_table (0.36 seconds)
+Migrating: 2019_08_19_000000_create_failed_jobs_table
+Migrated:  2019_08_19_000000_create_failed_jobs_table (0.28 seconds)
+
+В базе данных laravel.vue создались таблицы failed_jobs и users
+
+
+12) Добавляем механизм авторизации пользователей
+
+Каркас фронтенда, обычно поставляемый с предыдущими версиями Laravel, был перенесен в отдельный пакет laravel/ui. Это позволяет создавать и версионировать пользовательские интерфейсы отдельно от основного фреймворка. В результате этого изменения в дефолтном каркасе фреймворка не будет Bootstrap и Vue.
+Также была вынесена из фреймворка команда make:auth.Чтобы восстановить традиционный каркас Vue/Bootstrap, имеющийся в предыдущих версиях Laravel, вы можете установить пакет laravel/ui и использовать artisan команду ui для установки фронтенд каркаса.
+
+Устанавливаем пакет: composer require laravel/ui
+Устанавливаем фронтенд: php artisan ui vue --auth
+Загружаем пакеты фронтенда: npm install
+
+
+13) Устанавливаем панель отладчика DebugBar 
+
+https://github.com/barryvdh/laravel-debugbar
+
+composer require barryvdh/laravel-debugbar --dev
+
+Debugbar доступен, когда APP_DEBUG=true в файле .env
+
+14) Запускаем нашу сборку в режиме разработчика: 
+
+php artisan config:cache
+npm run dev
+
+В результате последней команды будут скомпелированы файлы стилей и скриптов
+/css/app.css
+/js/app.js
+
+15) 
+
+В результате выполнения п.12 
+В папке D:\OSPanel\domains\laravel.vue\resources\views
+создаётся файл home.blade.php
+
+он содержит строку @extends('layouts.app') 
+т.е. подключение файла layouts/app.blade.php
+
+home.blade.php расширяет layouts/app.blade.php
+
+а в layouts/app.blade.php мы видим подключение стилей и скриптов из папки public
+
+<!-- Styles -->
+<link href="{{ asset('css/app.css') }}" rel="stylesheet">
+<!-- Scripts -->
+<!-- Атрибут defer откладывает выполнение скрипта до тех пор, пока вся страница не будет загружена полностью. -->
+<script src="{{ asset('js/app.js') }}" defer></script>
+
+эти стили и скрипты собираются командой npm run dev
+которую мы использовали в п.14
+
+сборка производится на основе 
+D:\OSPanel\domains\laravel.vue\resources\js\app.js
+D:\OSPanel\domains\laravel.vue\resources\sass\app.scss
+
+чтобы не запускать npm run dev каждый раз при изменении стилей или скриптов, можно воспользоваться командой
+npm run watch
+которая автоматически будет отлавливать все изменения.
+
+16) Проверяем регистрацию на сайте
+http://laravel.vue/register
+
+логинимся - всё работает.
+
+
+17) Самое время закоммитить изменения (!)
+
+cd D:\OSPanel\domains\laravel.vue\
+git init
+git add .
+git commit -m "Laravel.Vue.Blank"
+
+
+Ссылка на исходный код к данному материалу:
+https://github.com/Best-ITPro/Laravel.Vue.Blank
+
+
+;)
+
